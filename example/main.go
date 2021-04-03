@@ -32,7 +32,9 @@ var (
 	allowed        = flag.String("allowed", "", "Allowed user.")
 )
 
-func Example() {
+func main() {
+	flag.Parse()
+
 	auth, err := googleauth.New(context.Background(), googleauth.Config{
 		ServiceAccountPath: *serviceAccount,
 		// Client credentials. As configured in
