@@ -56,8 +56,8 @@ type Config struct {
 	// Disable authentication.
 	Disable bool
 
-	Log    func(string, ...interface{})
-	Client *http.Client
+	Log    func(string, ...interface{}) `json:"-"`
+	Client *http.Client                 `json:"-"`
 }
 
 // Auth is a Google authentication handler.
