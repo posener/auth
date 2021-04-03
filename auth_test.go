@@ -22,20 +22,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func TestInvalidConfig(t *testing.T) {
-	t.Parallel()
-	configs := []Config{
-		// Both ServiceAccountJson and ServiceAccountPath are not set.
-		{},
-		// Both ServiceAccountJson and ServiceAccountPath are set.
-		{ServiceAccountJson: "foo", ServiceAccountPath: "bar"},
-	}
-	for _, cfg := range configs {
-		_, err := New(context.Background(), cfg)
-		assert.Error(t, err)
-	}
-}
-
 func TestDisable(t *testing.T) {
 	t.Parallel()
 
@@ -131,10 +117,9 @@ func TestAuthenticate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a, err := New(context.Background(), Config{
-				ServiceAccountJson: "{}", // Only required for initial validator call.
-				OAuth2:             oauth2Cfg,
-				Log:                t.Logf,
-				Client:             fakeClient(t, certResp{Keys: []cert{privateKeyCert}}),
+				OAuth2: oauth2Cfg,
+				Log:    t.Logf,
+				Client: fakeClient(t, certResp{Keys: []cert{privateKeyCert}}),
 			})
 			require.NoError(t, err)
 
@@ -246,9 +231,8 @@ func TestRedirect(t *testing.T) {
 			}
 
 			a, err := New(context.Background(), Config{
-				ServiceAccountJson: `{"type":"service_account"}`,
-				OAuth2:             oauth2Cfg,
-				Log:                t.Logf,
+				OAuth2: oauth2Cfg,
+				Log:    t.Logf,
 			})
 			require.NoError(t, err)
 

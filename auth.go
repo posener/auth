@@ -7,7 +7,6 @@ package googleauth
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -36,22 +35,10 @@ var defaultScopes = []string{
 type Config struct {
 	// OAuth2 Google client credentials. Should be generated using google cloud console at:
 	//  https://console.cloud.google.com/apis/credentials.
-	// If scope is not set, the defaultScopes are used.
-	// If Endpoint is not set, google.Endpoint is used.
+	// If scope is not set, the defaultScopes are used. The scope should not be set for standard
+	// usage.
+	// If Endpoint is not set, google.Endpoint is used. It should not be set for standard usage.
 	OAuth2 oauth2.Config
-
-	// Service account configuration.
-	// Should be created in google cloud console according to
-	// https://developers.google.com/identity/protocols/oauth2/service-account?authuser=1#creatinganaccount
-
-	// ServiceAccountJson is Json content of service account configuration (if used,
-	// ServiceAccountPath should be empty).
-	// Double quotes should be escaped: " => \"
-	// New lines should be escaped twice: \n => \\n
-	ServiceAccountJson string
-	// ServiceAccountPath is the path to the downloaded config (if used, ServiceAccountJson should
-	// be empty).
-	ServiceAccountPath string
 
 	// Disable authentication.
 	Disable bool
@@ -83,24 +70,11 @@ func New(ctx context.Context, cfg Config) (*Auth, error) {
 		return a, nil
 	}
 
-	// Create a token validator from the given service credentials.
-	var opts []idtoken.ClientOption
-	switch {
-	case cfg.ServiceAccountJson != "" && cfg.ServiceAccountPath != "":
-		return nil, fmt.Errorf("should not set both ServiceAccountJson and ServiceAccountPath")
-	case cfg.ServiceAccountJson != "":
-		opts = append(opts, idtoken.WithCredentialsJSON([]byte(cfg.ServiceAccountJson)))
-	case cfg.ServiceAccountPath != "":
-		opts = append(opts, idtoken.WithCredentialsFile(cfg.ServiceAccountPath))
-	default:
-		return nil, fmt.Errorf("should set ServiceAccountJson or ServiceAccountPath")
+	if cfg.Client == nil {
+		cfg.Client = http.DefaultClient
 	}
 
-	if cfg.Client != nil {
-		opts = append(opts, idtoken.WithHTTPClient(cfg.Client))
-	}
-
-	tokenValidator, err := idtoken.NewValidator(ctx, opts...)
+	tokenValidator, err := idtoken.NewValidator(ctx, idtoken.WithHTTPClient(cfg.Client))
 	if err != nil {
 		return nil, err
 	}

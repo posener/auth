@@ -1,11 +1,9 @@
 // The example program shows how to use the googleauth package.
 //
 // Before usage, credentials needs to be created.
-// Go to the https://console.cloud.google.com/apis/credentials page and create a "Service Account"
-// and an "OAuth 2.0 Client ID".
-// The service account json config should be downloaded and passed with the 'service-account' flag.
-// The OAuth 2.0 client ID and secret should be passed using the 'client-id' and 'client-secret'
-// flags.
+// Go to the https://console.cloud.google.com/apis/credentials page and create an "OAuth 2.0 Client
+// ID". The OAuth 2.0 client ID and secret should be passed using the 'client-id' and
+// 'client-secret' flags.
 // In the client ID configuration, the "Authorized Javascript origins" should contain
 // http://localhost:8080 (or another URL address that this server is running at). And the
 // "Authorized redirect URIs" should contain the same address with a "/auth" suffix - according to
@@ -25,18 +23,16 @@ import (
 )
 
 var (
-	port           = flag.Int("port", 8080, "Server port")
-	serviceAccount = flag.String("service-account", "", "Path to a Google Service account config file.")
-	clientID       = flag.String("client-id", "", "Google OAuth 2.0 Client ID.")
-	clientSecret   = flag.String("client-secret", "", "Google OAuth 2.0 Client secret.")
-	allowed        = flag.String("allowed", "", "Allowed user.")
+	port         = flag.Int("port", 8080, "Server port")
+	clientID     = flag.String("client-id", "", "Google OAuth 2.0 Client ID.")
+	clientSecret = flag.String("client-secret", "", "Google OAuth 2.0 Client secret.")
+	authorized   = flag.String("authorized", "", "Authorized user.")
 )
 
 func main() {
 	flag.Parse()
 
 	auth, err := googleauth.New(context.Background(), googleauth.Config{
-		ServiceAccountPath: *serviceAccount,
 		// Client credentials. As configured in
 		// from https://console.cloud.google.com/apis/credentials at the "OAuth 2.0 Client IDs"
 		// section.
@@ -46,17 +42,25 @@ func main() {
 			ClientID:     *clientID,
 			ClientSecret: *clientSecret,
 		},
+		Log: log.Printf,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get the authenticated user from the request context.
 		user := googleauth.User(r.Context())
-		if *allowed != "" && *allowed != user.Email {
+
+		// The authenticated user can be authorized according to the email, which identifies the
+		// account.
+		if *authorized != "" && *authorized != user.Email {
+			// The logged in user is not allowed for this page.
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
+
+		// User is allowed, greet them.
 		fmt.Fprintf(w, "Hello, %s", user.Name)
 	})
 
