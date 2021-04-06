@@ -12,6 +12,16 @@ The `User` function can be used to get the logged in user in an authenticated ht
 
 See simple usage example in [./example/main.go](./example/main.go).
 
+```go
+auth, err := googleauth.New(ctx, googleauth.Config{ ... })
+if err != nil { /* Handle error */ }
+
+mux := http.NewServeMux()
+mux.Handle("/", auth.Authenticate(handler))  // Authenticate a given handler on '/'.
+mux.Handle("/auth", auth.RedirectHandler())  // Handle OAuth2 redirect.
+log.Fatal(http.ListenAndServe(":8080", mux)) // Serve.
+```
+
 ## Sub Packages
 
 * [example](./example): The example program shows how to use the googleauth package.
