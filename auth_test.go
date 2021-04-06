@@ -119,7 +119,7 @@ func TestAuthenticate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			a, err := New(context.Background(), Config{
-				OAuth2: oauth2Cfg,
+				Config: oauth2Cfg,
 				Log:    t.Logf,
 				Client: fakeClient(t, certResp{Keys: []cert{privateKeyCert}}),
 			})
@@ -233,7 +233,7 @@ func TestRedirect(t *testing.T) {
 			}
 
 			a, err := New(context.Background(), Config{
-				OAuth2: oauth2Cfg,
+				Config: oauth2Cfg,
 				Log:    t.Logf,
 			})
 			require.NoError(t, err)
@@ -262,7 +262,7 @@ func Test(t *testing.T) {
 	l := newLocalListener()
 
 	auth, err := New(context.Background(), Config{
-		OAuth2: oauth2.Config{
+		Config: oauth2.Config{
 			RedirectURL:  fmt.Sprintf("http://" + l.Addr().String() + "/auth"),
 			ClientID:     "client-id",
 			ClientSecret: "client-secret",
@@ -382,4 +382,18 @@ func newLocalListener() net.Listener {
 		}
 	}
 	return l
+}
+
+func TestConfigJson(t *testing.T) {
+	t.Parallel()
+	j := `{"ClientID":"id","ClientSecret":"secret","Disable":true}`
+	var got Config
+	err := json.Unmarshal([]byte(j), &got)
+	require.NoError(t, err)
+
+	want := Config{
+		Config:  oauth2.Config{ClientID: "id", ClientSecret: "secret"},
+		Disable: true,
+	}
+	assert.Equal(t, want, got)
 }

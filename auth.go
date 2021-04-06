@@ -44,12 +44,12 @@ var defaultScopes = []string{
 
 // Config is the Google configuration for the authentication.
 type Config struct {
-	// OAuth2 Google client credentials. Should be generated using google cloud console at:
-	//  https://console.cloud.google.com/apis/credentials.
+	// Config for Google client credentials. Should be generated using google cloud console at:
+	// https://console.cloud.google.com/apis/credentials.
 	// If scope is not set, the defaultScopes are used. The scope should not be set for standard
 	// usage.
 	// If Endpoint is not set, google.Endpoint is used. It should not be set for standard usage.
-	OAuth2 oauth2.Config
+	oauth2.Config
 
 	// Disable authentication.
 	Disable bool
@@ -91,11 +91,11 @@ func New(ctx context.Context, cfg Config) (*Auth, error) {
 	}
 
 	// Apply default values.
-	if cfg.OAuth2.Endpoint.AuthURL == "" || cfg.OAuth2.Endpoint.TokenURL == "" {
-		cfg.OAuth2.Endpoint = google.Endpoint
+	if cfg.Endpoint.AuthURL == "" || cfg.Endpoint.TokenURL == "" {
+		cfg.Endpoint = google.Endpoint
 	}
-	if len(cfg.OAuth2.Scopes) == 0 {
-		cfg.OAuth2.Scopes = defaultScopes
+	if len(cfg.Scopes) == 0 {
+		cfg.Scopes = defaultScopes
 	}
 
 	return &Auth{validator: tokenValidator, cfg: cfg}, nil
@@ -105,7 +105,7 @@ func New(ctx context.Context, cfg Config) (*Auth, error) {
 func (a *Auth) RedirectHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		code := r.URL.Query().Get("code")
-		token, err := a.cfg.OAuth2.Exchange(r.Context(), code)
+		token, err := a.cfg.Exchange(r.Context(), code)
 		if err != nil {
 			a.logf("Authentication failure for code %s: %s", code, err)
 			http.Error(w, "Authorization failure", http.StatusUnauthorized)
@@ -151,7 +151,7 @@ func (a *Auth) Authenticate(handler http.Handler) http.Handler {
 			return
 		}
 		// Calidate the id_token.
-		payload, err := a.validator.Validate(r.Context(), idToken, a.cfg.OAuth2.ClientID)
+		payload, err := a.validator.Validate(r.Context(), idToken, a.cfg.ClientID)
 		if err != nil {
 			// Clear cookie, in case it is invalid.
 			http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Expires: time.Now()})
@@ -182,7 +182,7 @@ func (a *Auth) idToken(w http.ResponseWriter, r *http.Request) string {
 		// for the scopes specified above.
 		// Set the scope to the current request URL, it will be used by the redirect handler to
 		// redirect back to the url that requested the authentication.
-		url := a.cfg.OAuth2.AuthCodeURL(r.RequestURI)
+		url := a.cfg.AuthCodeURL(r.RequestURI)
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 		return ""
 
