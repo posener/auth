@@ -1,8 +1,11 @@
 // Package googleauth provides painless Google authentication for http handlers.
 //
-// After creating an Auth handler, the RedirectHandler should be mounted to answer the
-// cfg.OAuth2.RedirectURL http calls and the Authenticate method can be used to enforce
+// After creating an Auth object, the `RedirectHandler` should be mounted to answer the
+// cfg.OAuth2.RedirectURL http calls and the `Authenticate` method can be used to enforce
 // authentication on http handlers.
+// The `User` function can be used to get the logged in user in an authenticated http handler.
+//
+// See simple usage example in ./example/main.go.
 package googleauth
 
 import (
@@ -192,7 +195,7 @@ func (a *Auth) logf(format string, args ...interface{}) {
 }
 
 // User returns the credentials of the logged in user. It returns nil in case that there is no
-// user information. This can happen when the http handler is not authenticated.
+// user information (This can happen when the http handler is not authenticated).
 func User(ctx context.Context) *Creds {
 	v := ctx.Value(credsKey)
 	if v == nil {

@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/big"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -252,6 +254,57 @@ func TestRedirect(t *testing.T) {
 	}
 }
 
+func Test(t *testing.T) {
+	t.Parallel()
+
+	authorized := "john@example.com"
+
+	l := newLocalListener()
+
+	auth, err := New(context.Background(), Config{
+		OAuth2: oauth2.Config{
+			RedirectURL:  fmt.Sprintf("http://" + l.Addr().String() + "/auth"),
+			ClientID:     "client-id",
+			ClientSecret: "client-secret",
+		},
+		Log: log.Printf,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Get the authenticated user from the request context.
+		user := User(r.Context())
+
+		// The authenticated user can be authorized according to the email, which identifies the
+		// account.
+		if user.Email != authorized {
+			// The logged in user is not allowed for this page.
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		// User is allowed, greet them.
+		fmt.Fprintf(w, "Hello, %s", user.Name)
+	})
+
+	mux := http.NewServeMux()
+	mux.Handle("/", auth.Authenticate(handler))
+	mux.Handle("/auth", auth.RedirectHandler())
+
+	s := httptest.Server{
+		Listener: l,
+		Config:   &http.Server{Handler: mux},
+	}
+	s.Start()
+	defer s.Close()
+
+	resp, err := http.Get(s.URL)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
 func genSignedToken(t *testing.T, privateKeyID string, privateKey *rsa.PrivateKey, clientID string, email, name string) string {
 	t.Helper()
 	userClaims := struct {
@@ -319,4 +372,14 @@ func (f *fakeTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	}
 	f.t.Fatalf("Unexpected request to %s", r.URL)
 	return nil, nil
+}
+
+func newLocalListener() net.Listener {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		if l, err = net.Listen("tcp6", "[::1]:0"); err != nil {
+			panic(fmt.Sprintf("httptest: failed to listen on a port: %v", err))
+		}
+	}
+	return l
 }

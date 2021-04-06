@@ -32,6 +32,7 @@ var (
 func main() {
 	flag.Parse()
 
+	// Create auth object.
 	auth, err := googleauth.New(context.Background(), googleauth.Config{
 		// Client credentials. As configured in
 		// from https://console.cloud.google.com/apis/credentials at the "OAuth 2.0 Client IDs"
@@ -48,25 +49,36 @@ func main() {
 		log.Fatal(err)
 	}
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get the authenticated user from the request context.
-		user := googleauth.User(r.Context())
-
-		// The authenticated user can be authorized according to the email, which identifies the
-		// account.
-		if *authorized != "" && *authorized != user.Email {
-			// The logged in user is not allowed for this page.
-			w.WriteHeader(http.StatusForbidden)
-			return
-		}
-
-		// User is allowed, greet them.
-		fmt.Fprintf(w, "Hello, %s", user.Name)
-	})
-
 	mux := http.NewServeMux()
-	mux.Handle("/", auth.Authenticate(handler))
+	mux.Handle("/", auth.Authenticate(http.HandlerFunc(handler)))
 	mux.Handle("/auth", auth.RedirectHandler())
 
-	http.ListenAndServe(fmt.Sprintf(":%d", *port), mux)
+	err = http.ListenAndServe(fmt.Sprintf(":%d", *port), mux)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// handler is an example for http handler that is protected using Google authorization.
+func handler(w http.ResponseWriter, r *http.Request) {
+	// Get the authenticated user from the request context.
+	user := googleauth.User(r.Context())
+
+	if user == nil {
+		// No user is logged in. This can only happen when the handler is not wrapped with
+		// `auth.Authorize`.
+		http.Error(w, "Not authorized", http.StatusUnauthorized)
+		return
+	}
+
+	// The authenticated user can be authorized according to the email, which identifies the
+	// account.
+	if *authorized != "" && *authorized != user.Email {
+		// The logged in user is not allowed for this page.
+		http.Error(w, fmt.Sprintf("User %s not allowed", user.Email), http.StatusForbidden)
+		return
+	}
+
+	// User is allowed, greet them.
+	fmt.Fprintf(w, "Hello, %s", user.Name)
 }
