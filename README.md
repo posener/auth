@@ -22,6 +22,27 @@ mux.Handle("/auth", auth.RedirectHandler())  // Handle OAuth2 redirect.
 log.Fatal(http.ListenAndServe(":8080", mux)) // Serve.
 ```
 
+## Features
+
+- [x] Automatic redirects to Google auth flow (login screen) from authorized handlers when user
+
+```go
+is not authenticated.
+```
+
+- [x] Redirect handler automatic redirects to the path that requested to the authentication. Such
+
+```go
+that if user visited /foo and was sent to login with Google, after successfull login it
+will return to /foo.
+```
+
+- [x] Google's id_token is automatically stored in a Cookie. This allows users not to go through
+
+```go
+the authentication phase on every authenticated page, or on different sessions.
+```
+
 ## Sub Packages
 
 * [example](./example): The example program shows how to use the googleauth package.
