@@ -25,23 +25,17 @@ log.Fatal(http.ListenAndServe(":8080", mux)) // Serve.
 ## Features
 
 - [x] Automatic redirects to OAuth2 flow (login screen) from authorized handlers when user
-
-```go
 is not authenticated.
-```
 
 - [x] Redirect handler automatic redirects to the path that requested to the authentication. Such
+that if user visited /foo and was sent to the OAuth2 login. After successfull login it
 
 ```go
-that if user visited /foo and was sent to the OAuth2 login. After successfull login it
 will return to /foo.
 ```
 
 - [x] Auth2 id_token is automatically stored in a Cookie. This allows users not to go through
-
-```go
 the authentication phase on every authenticated page, or on different sessions.
-```
 
 ## Sub Packages
 
