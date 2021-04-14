@@ -3,7 +3,7 @@
 [![codecov](https://codecov.io/gh/posener/auth/branch/master/graph/badge.svg)](https://codecov.io/gh/posener/auth)
 [![GoDoc](https://img.shields.io/badge/pkg.go.dev-doc-blue)](http://pkg.go.dev/github.com/posener/auth)
 
-package auth provides painless Google authentication for http handlers.
+ackage auth provides painless OAuth2 authentication for http handlers.
 
 After creating an Auth object, the `RedirectHandler` should be mounted to answer the
 cfg.OAuth2.RedirectURL http calls and the `Authenticate` method can be used to enforce
@@ -24,7 +24,7 @@ log.Fatal(http.ListenAndServe(":8080", mux)) // Serve.
 
 ## Features
 
-- [x] Automatic redirects to Google auth flow (login screen) from authorized handlers when user
+- [x] Automatic redirects to OAuth2 flow (login screen) from authorized handlers when user
 
 ```go
 is not authenticated.
@@ -33,11 +33,11 @@ is not authenticated.
 - [x] Redirect handler automatic redirects to the path that requested to the authentication. Such
 
 ```go
-that if user visited /foo and was sent to login with Google, after successfull login it
+that if user visited /foo and was sent to the OAuth2 login. After successfull login it
 will return to /foo.
 ```
 
-- [x] Google's id_token is automatically stored in a Cookie. This allows users not to go through
+- [x] Auth2 id_token is automatically stored in a Cookie. This allows users not to go through
 
 ```go
 the authentication phase on every authenticated page, or on different sessions.
