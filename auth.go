@@ -1,4 +1,4 @@
-// Package googleauth provides painless Google authentication for http handlers.
+// ackage auth provides painless Google authentication for http handlers.
 //
 // After creating an Auth object, the `RedirectHandler` should be mounted to answer the
 // cfg.OAuth2.RedirectURL http calls and the `Authenticate` method can be used to enforce
@@ -7,7 +7,7 @@
 //
 // See simple usage example in ./example/main.go.
 //
-//	auth, err := googleauth.New(ctx, googleauth.Config{ ... })
+//	auth, err := auth.New(ctx, auth.Config{ ... })
 // 	if err != nil { /* Handle error */ }
 //
 // 	mux := http.NewServeMux()
@@ -26,7 +26,7 @@
 //
 // - [x] Google's id_token is automatically stored in a Cookie. This allows users not to go through
 //       the authentication phase on every authenticated page, or on different sessions.
-package googleauth
+package auth
 
 import (
 	"context"
@@ -149,7 +149,7 @@ func (a *Auth) RedirectHandler() http.Handler {
 // Authenticate wraps a handler and enforces only authenticated users.
 func (a *Auth) Authenticate(handler http.Handler) http.Handler {
 	if handler == nil {
-		panic("googleauth: nil handler")
+		panic("auth: nil handler")
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

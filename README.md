@@ -1,9 +1,9 @@
-# googleauth
+# auth
 
-[![codecov](https://codecov.io/gh/posener/googleauth/branch/master/graph/badge.svg)](https://codecov.io/gh/posener/googleauth)
-[![GoDoc](https://img.shields.io/badge/pkg.go.dev-doc-blue)](http://pkg.go.dev/github.com/posener/googleauth)
+[![codecov](https://codecov.io/gh/posener/auth/branch/master/graph/badge.svg)](https://codecov.io/gh/posener/auth)
+[![GoDoc](https://img.shields.io/badge/pkg.go.dev-doc-blue)](http://pkg.go.dev/github.com/posener/auth)
 
-Package googleauth provides painless Google authentication for http handlers.
+package auth provides painless Google authentication for http handlers.
 
 After creating an Auth object, the `RedirectHandler` should be mounted to answer the
 cfg.OAuth2.RedirectURL http calls and the `Authenticate` method can be used to enforce
@@ -13,7 +13,7 @@ The `User` function can be used to get the logged in user in an authenticated ht
 See simple usage example in [./example/main.go](./example/main.go).
 
 ```go
-auth, err := googleauth.New(ctx, googleauth.Config{ ... })
+auth, err := auth.New(ctx, auth.Config{ ... })
 if err != nil { /* Handle error */ }
 
 mux := http.NewServeMux()
@@ -45,7 +45,7 @@ the authentication phase on every authenticated page, or on different sessions.
 
 ## Sub Packages
 
-* [example](./example): The example program shows how to use the googleauth package.
+* [example](./example): The example program shows how to use the auth package.
 
 ---
 Readme created from Go doc with [goreadme](https://github.com/posener/goreadme)

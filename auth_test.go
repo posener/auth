@@ -1,4 +1,4 @@
-package googleauth
+package auth
 
 import (
 	"bytes"

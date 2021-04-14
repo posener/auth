@@ -1,4 +1,4 @@
-module github.com/posener/googleauth
+module github.com/posener/auth
 
 go 1.16
 

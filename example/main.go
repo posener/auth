@@ -1,4 +1,4 @@
-// The example program shows how to use the googleauth package.
+// The example program shows how to use the auth package.
 //
 // Before usage, credentials needs to be created.
 // Go to the https://console.cloud.google.com/apis/credentials page and create an "OAuth 2.0 Client
@@ -8,7 +8,7 @@
 // http://localhost:8080 (or another URL address that this server is running at). And the
 // "Authorized redirect URIs" should contain the same address with a "/auth" suffix - according to
 // where the `auth.RedirectHandler()` is mounted in this code, and see that
-// `googleauth.Config.OAuth2.RedirectURL` is configured accordingly.
+// `auth.Config.OAuth2.RedirectURL` is configured accordingly.
 package main
 
 import (
@@ -18,7 +18,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/posener/googleauth"
+	"github.com/posener/auth"
 	"golang.org/x/oauth2"
 )
 
@@ -33,11 +33,11 @@ func main() {
 	flag.Parse()
 
 	// Create auth object.
-	auth, err := googleauth.New(context.Background(), googleauth.Config{
+	a, err := auth.New(context.Background(), auth.Config{
 		// Client credentials. As configured in
 		// from https://console.cloud.google.com/apis/credentials at the "OAuth 2.0 Client IDs"
 		// section.
-		OAuth2: oauth2.Config{
+		Config: oauth2.Config{
 			// The redirect URL should be configured in the client config in google cloud console.
 			RedirectURL:  fmt.Sprintf("http://localhost:%d/auth", *port),
 			ClientID:     *clientID,
@@ -50,8 +50,8 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/", auth.Authenticate(http.HandlerFunc(handler)))
-	mux.Handle("/auth", auth.RedirectHandler())
+	mux.Handle("/", a.Authenticate(http.HandlerFunc(handler)))
+	mux.Handle("/auth", a.RedirectHandler())
 
 	err = http.ListenAndServe(fmt.Sprintf(":%d", *port), mux)
 	if err != nil {
@@ -62,7 +62,7 @@ func main() {
 // handler is an example for http handler that is protected using Google authorization.
 func handler(w http.ResponseWriter, r *http.Request) {
 	// Get the authenticated user from the request context.
-	user := googleauth.User(r.Context())
+	user := auth.User(r.Context())
 
 	if user == nil {
 		// No user is logged in. This can only happen when the handler is not wrapped with
