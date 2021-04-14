@@ -1,4 +1,4 @@
-// ackage auth provides painless Google authentication for http handlers.
+// ackage auth provides painless OAuth2 authentication for http handlers.
 //
 // After creating an Auth object, the `RedirectHandler` should be mounted to answer the
 // cfg.OAuth2.RedirectURL http calls and the `Authenticate` method can be used to enforce
@@ -17,14 +17,14 @@
 //
 // Features
 //
-// - [x] Automatic redirects to Google auth flow (login screen) from authorized handlers when user
+// - [x] Automatic redirects to OAuth2 flow (login screen) from authorized handlers when user
 //       is not authenticated.
 //
 // - [x] Redirect handler automatic redirects to the path that requested to the authentication. Such
-//       that if user visited /foo and was sent to login with Google, after successfull login it
+//       that if user visited /foo and was sent to the OAuth2 login. After successfull login it
 //       will return to /foo.
 //
-// - [x] Google's id_token is automatically stored in a Cookie. This allows users not to go through
+// - [x] Auth2 id_token is automatically stored in a Cookie. This allows users not to go through
 //       the authentication phase on every authenticated page, or on different sessions.
 package auth
 
@@ -56,11 +56,16 @@ var defaultScopes = []string{
 
 // Config is the Google configuration for the authentication.
 type Config struct {
-	// Config for Google client credentials. Should be generated using google cloud console at:
-	// https://console.cloud.google.com/apis/credentials.
+	// Config Oauth2 client credentials.
+	//
 	// If scope is not set, the defaultScopes are used. The scope should not be set for standard
 	// usage.
 	// If Endpoint is not set, google.Endpoint is used. It should not be set for standard usage.
+	//
+	// OAuth2 Providers
+	//
+	// For Google OAuth2 authentication, the client credentials can be generated using Google cloud
+	// console at: https://console.cloud.google.com/apis/credentials.
 	oauth2.Config
 
 	// Disable authentication.
@@ -70,7 +75,7 @@ type Config struct {
 	Client *http.Client                 `json:"-"`
 }
 
-// Auth is a Google authentication handler.
+// Auth is an authentication handler.
 type Auth struct {
 	validator *idtoken.Validator
 	cfg       Config
@@ -85,11 +90,11 @@ type Creds struct {
 	Name string
 }
 
-// New returns Google authentication handler.
+// New returns an authentication handler.
 func New(ctx context.Context, cfg Config) (*Auth, error) {
 	if cfg.Disable {
 		a := &Auth{cfg: cfg}
-		a.logf("Google authentication is disabled!")
+		a.logf("Authentication is disabled!")
 		return a, nil
 	}
 
@@ -182,16 +187,16 @@ func (a *Auth) Authenticate(handler http.Handler) http.Handler {
 	})
 }
 
-// idToken returns the id_token. From cookie, or from Google redirect page in case the cookie is
+// idToken returns the id_token. From cookie, or from OAuth2 redirect page in case the cookie is
 // missing. If the returned string is empty, the appropriate response was already written and the
 // caller should halt the http serving.
 func (a *Auth) idToken(w http.ResponseWriter, r *http.Request) string {
 	cookie, err := r.Cookie(cookieName)
 	switch {
 	case err == http.ErrNoCookie || cookie.Value == "" || (!cookie.Expires.IsZero() && cookie.Expires.Before(time.Now())):
-		// Cookie is missing, invalid or expired. Fetch new token from Google.
-		// Redirect user to Google's consent page to ask for permission
-		// for the scopes specified above.
+		// Cookie is missing, invalid or expired. Fetch new token from OAuth2 provider.
+		// Redirect user to the OAuth2 consent page to ask for permission for the scopes specified
+		// above.
 		// Set the scope to the current request URL, it will be used by the redirect handler to
 		// redirect back to the url that requested the authentication.
 		url := a.cfg.AuthCodeURL(r.RequestURI)
