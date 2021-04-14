@@ -13,12 +13,12 @@ The `User` function can be used to get the logged in user in an authenticated ht
 See simple usage example in [./example/main.go](./example/main.go).
 
 ```go
-auth, err := auth.New(ctx, auth.Config{ ... })
+a, err := auth.New(ctx, auth.Config{ ... })
 if err != nil { /* Handle error */ }
 
 mux := http.NewServeMux()
-mux.Handle("/", auth.Authenticate(handler))  // Authenticate a given handler on '/'.
-mux.Handle("/auth", auth.RedirectHandler())  // Handle OAuth2 redirect.
+mux.Handle("/", a.Authenticate(handler))  // Authenticate a given handler on '/'.
+mux.Handle("/auth", a.RedirectHandler())  // Handle OAuth2 redirect.
 log.Fatal(http.ListenAndServe(":8080", mux)) // Serve.
 ```
 
