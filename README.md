@@ -29,10 +29,7 @@ is not authenticated.
 
 - [x] Redirect handler automatic redirects to the path that requested to the authentication. Such
 that if user visited /foo and was sent to the OAuth2 login. After successfull login it
-
-```go
 will return to /foo.
-```
 
 - [x] Auth2 id_token is automatically stored in a Cookie. This allows users not to go through
 the authentication phase on every authenticated page, or on different sessions.
