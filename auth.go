@@ -15,6 +15,31 @@
 // 	mux.Handle("/auth", a.RedirectHandler())  // Handle OAuth2 redirect.
 // 	log.Fatal(http.ListenAndServe(":8080", mux)) // Serve.
 //
+// Authentication
+//
+// Authentication is done by wrapping an `http.Handler` that requires only signed in users
+// with the `Authenticate` middleware method.
+//
+// Authorization
+//
+// Authorization is allowing only specific users to access an `http.Handler`. For example, allowing
+// only john@gmail.com, or anyone that signed in using their @example.com. This can be done by
+// inspecting the username using the `auth.User(ctx)` method, inside the authenticated `http.Handler`.
+// For example, given a function `authorized` that checks if the signed-in user is authorized:
+//
+//  func handler(w http.ResponseWriter, r *http.Request) {
+//  	creds := auth.User(r.Context())
+//  	if !authorized(creds) {
+//  		// Handle unauthorized users.
+//  		http.Error(w, "User not allowed", http.StatusForbidden)
+//  		return
+//  	}
+//  	// Handle authorized users.
+//  }
+//
+//  // authorized is an example function that checks if a user is authorized.
+//  func authorized(creds *auth.Creds) bool { return creds.Email == "john@gmail.com" }
+//
 // Features
 //
 // - [x] Automatic redirects to OAuth2 flow (login screen) from authorized handlers when user
@@ -221,6 +246,18 @@ func (a *Auth) logf(format string, args ...interface{}) {
 
 // User returns the credentials of the logged in user. It returns nil in case that there is no
 // user information (This can happen when the http handler is not authenticated).
+// It should be used inside an `http.Handler` that was authenticated using
+// `Auth.Authenticate(handler)` and receive the request context, as follows:
+//
+// 	func handler(w http.ResponseWriter, r *http.Request) {
+//		creds := auth.User(r.Context())
+//  	if !authorized(creds) {
+// 			// Handle unauthorized users.
+// 			http.Error(w, "User not allowed", http.StatusForbidden)
+// 			return
+// 		}
+// 		// Handle authorized users.
+//  }
 func User(ctx context.Context) *Creds {
 	v := ctx.Value(credsKey)
 	if v == nil {
