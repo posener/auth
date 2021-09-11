@@ -98,6 +98,9 @@ type Config struct {
 
 	Log    func(string, ...interface{}) `json:"-"`
 	Client *http.Client                 `json:"-"`
+
+	// Unsecure uses unsecured cookies (Required for http scheme).
+	Unsecure bool
 }
 
 // Auth is an authentication handler.
@@ -165,13 +168,27 @@ func (a *Auth) RedirectHandler() http.Handler {
 			Name:    cookieName,
 			Value:   token.Extra(tokenKey).(string),
 			Expires: token.Expiry,
-			Secure:  true,
+			Secure:  !a.cfg.Unsecure,
 		})
 
 		redirectPath := r.URL.Query().Get("state")
 		if redirectPath == "" {
 			redirectPath = "/"
 		}
+		http.Redirect(w, r, redirectPath, http.StatusTemporaryRedirect)
+	})
+}
+
+// LogoutHandler can be mounted on an http endpoint for logging out. It will redirect to
+// the given path after user is navigating to the logout path.
+func (a *Auth) LogoutHandler(redirectPath string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:    cookieName,
+			Value:   "",
+			Expires: time.Now(),
+			Secure:  !a.cfg.Unsecure,
+		})
 		http.Redirect(w, r, redirectPath, http.StatusTemporaryRedirect)
 	})
 }
