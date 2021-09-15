@@ -271,9 +271,10 @@ func (a *Auth) setCookie(w http.ResponseWriter, token *token) error {
 	}
 	base64Encoded := base64.StdEncoding.EncodeToString(jsonEncoded)
 	http.SetCookie(w, &http.Cookie{
-		Name:   cookieName,
-		Value:  base64Encoded,
-		Secure: !a.cfg.Unsecure,
+		Name:    cookieName,
+		Value:   base64Encoded,
+		Expires: time.Now().Add(time.Hour * 24 * 365 * 10), // No expiry.
+		Secure:  !a.cfg.Unsecure,
 	})
 	return nil
 }
