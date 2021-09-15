@@ -55,6 +55,9 @@ package auth
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -64,7 +67,6 @@ import (
 )
 
 const (
-	tokenKey   = "id_token"
 	afterKey   = "after"
 	cookieName = "login"
 )
@@ -157,19 +159,19 @@ func (a *Auth) RedirectHandler() http.Handler {
 			return
 		}
 
-		_, ok := token.Extra(tokenKey).(string)
+		_, ok := token.Extra("id_token").(string)
 		if !ok {
-			a.logf("Invalid ID token %v (%T)", token.Extra(tokenKey), token.Extra(tokenKey))
+			a.logf("Invalid ID token %v (%T)", token.Extra("id_token"), token.Extra("id_token"))
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
 
-		http.SetCookie(w, &http.Cookie{
-			Name:    cookieName,
-			Value:   token.Extra(tokenKey).(string),
-			Expires: token.Expiry,
-			Secure:  !a.cfg.Unsecure,
-		})
+		err = a.setCookie(w, fromOauth2(token))
+		if err != nil {
+			a.logf("Failed setting cookie: %v", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
 
 		redirectPath := r.URL.Query().Get("state")
 		if redirectPath == "" {
@@ -183,12 +185,7 @@ func (a *Auth) RedirectHandler() http.Handler {
 // the given path after user is navigating to the logout path.
 func (a *Auth) LogoutHandler(redirectPath string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.SetCookie(w, &http.Cookie{
-			Name:    cookieName,
-			Value:   "",
-			Expires: time.Now(),
-			Secure:  !a.cfg.Unsecure,
-		})
+		a.clearCookie(w)
 		http.Redirect(w, r, redirectPath, http.StatusTemporaryRedirect)
 	})
 }
@@ -205,15 +202,44 @@ func (a *Auth) Authenticate(handler http.Handler) http.Handler {
 			return
 		}
 
-		idToken := a.idToken(w, r)
-		if idToken == "" {
+		token, err := a.getCookie(r)
+		if token == nil && err == nil {
+			// Cookie is missing, invalid. Fetch new token from OAuth2 provider.
+			// Redirect user to the OAuth2 consent page to ask for permission for the scopes specified
+			// above.
+			// Set the scope to the current request URL, it will be used by the redirect handler to
+			// redirect back to the url that requested the authentication.
+			url := a.cfg.AuthCodeURL(r.RequestURI)
+			http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 			return
 		}
-		// Calidate the id_token.
-		payload, err := a.validator.Validate(r.Context(), idToken, a.cfg.ClientID)
 		if err != nil {
-			// Clear cookie, in case it is invalid.
-			http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Expires: time.Now()})
+			a.clearCookie(w)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			a.logf("Get cookie error: %v", err)
+			return
+		}
+
+		// Source token, in case the token needs a renewal.
+		newOauth2Token, err := a.cfg.TokenSource(r.Context(), token.toOauth2()).Token()
+		if err != nil {
+			a.clearCookie(w)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			a.logf("Failed token source: %s", err)
+			return
+		}
+		newToken := fromOauth2(newOauth2Token)
+
+		if newToken.IDToken != token.IDToken {
+			a.logf("Refreshed token")
+			token = newToken
+			a.setCookie(w, token)
+		}
+
+		// Validate the id_token.
+		payload, err := a.validator.Validate(r.Context(), token.IDToken, a.cfg.ClientID)
+		if err != nil {
+			a.clearCookie(w)
 			http.Error(w, "Invalid auth.", http.StatusUnauthorized)
 			a.logf("Invalid token, reset cookie: %s", err)
 			return
@@ -229,28 +255,52 @@ func (a *Auth) Authenticate(handler http.Handler) http.Handler {
 	})
 }
 
-// idToken returns the id_token. From cookie, or from OAuth2 redirect page in case the cookie is
-// missing. If the returned string is empty, the appropriate response was already written and the
-// caller should halt the http serving.
-func (a *Auth) idToken(w http.ResponseWriter, r *http.Request) string {
+func (a *Auth) clearCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:    cookieName,
+		Value:   "",
+		Expires: time.Now(),
+		Secure:  !a.cfg.Unsecure,
+	})
+}
+
+func (a *Auth) setCookie(w http.ResponseWriter, token *token) error {
+	jsonEncoded, err := json.Marshal(token)
+	if err != nil {
+		return err
+	}
+	base64Encoded := base64.StdEncoding.EncodeToString(jsonEncoded)
+	http.SetCookie(w, &http.Cookie{
+		Name:    cookieName,
+		Value:   base64Encoded,
+		Expires: token.Expiry,
+		Secure:  !a.cfg.Unsecure,
+	})
+	return nil
+}
+
+func (a *Auth) getCookie(r *http.Request) (*token, error) {
+	// Get the token from the cookie.
 	cookie, err := r.Cookie(cookieName)
 	switch {
-	case err == http.ErrNoCookie || cookie.Value == "" || (!cookie.Expires.IsZero() && cookie.Expires.Before(time.Now())):
-		// Cookie is missing, invalid or expired. Fetch new token from OAuth2 provider.
-		// Redirect user to the OAuth2 consent page to ask for permission for the scopes specified
-		// above.
-		// Set the scope to the current request URL, it will be used by the redirect handler to
-		// redirect back to the url that requested the authentication.
-		url := a.cfg.AuthCodeURL(r.RequestURI)
-		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
-		return ""
-
+	case err == http.ErrNoCookie || cookie.Value == "":
+		return nil, nil
+	case !cookie.Expires.IsZero() && cookie.Expires.Before(time.Now()):
+		// TODO:
 	case err != nil:
-		a.logf("Failed getting cookie: %s", err)
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return ""
+		return nil, fmt.Errorf("failed getting cookie: %v", err)
 	}
-	return cookie.Value
+
+	decoded, err := base64.URLEncoding.DecodeString(cookie.Value)
+	if err != nil {
+		return nil, fmt.Errorf("failed base64 decoding cookie: %s", err)
+	}
+	t := &token{}
+	err = json.Unmarshal(decoded, t)
+	if err != nil {
+		return nil, fmt.Errorf("failed json decoding cookie: %s", err)
+	}
+	return t, nil
 }
 
 func (a *Auth) logf(format string, args ...interface{}) {
@@ -281,4 +331,21 @@ func User(ctx context.Context) *Creds {
 		return nil
 	}
 	return v.(*Creds)
+}
+
+type token struct {
+	*oauth2.Token
+	// Extras:
+	IDToken string `json:"id_token"`
+}
+
+func fromOauth2(t *oauth2.Token) *token {
+	return &token{
+		Token:   t,
+		IDToken: t.Extra("id_token").(string),
+	}
+}
+
+func (t *token) toOauth2() *oauth2.Token {
+	return t.Token.WithExtra(map[string]interface{}{"id_token": t.IDToken})
 }

@@ -57,7 +57,17 @@ func TestAuthenticate(t *testing.T) {
 	email := "email@example.com"
 	name := "John"
 
-	signedToken := genSignedToken(t, privateKeyCert.KID, privateKey, oauth2Cfg.ClientID, email, name)
+	signedIdToken := genSignedToken(t, privateKeyCert.KID, privateKey, oauth2Cfg.ClientID, email, name)
+	tkn := &token{
+		Token: &oauth2.Token{
+			AccessToken: "access",
+			Expiry:      time.Now().Add(1 * time.Hour),
+		},
+		IDToken: signedIdToken,
+	}
+	jsonEncoded, err := json.Marshal(tkn)
+	require.NoError(t, err)
+	base64Encoded := base64.StdEncoding.EncodeToString(jsonEncoded)
 
 	requestPath := "/path"
 	responseText := "authenticated!"
@@ -79,7 +89,7 @@ func TestAuthenticate(t *testing.T) {
 			name: "valid cookie",
 			cookie: &http.Cookie{
 				Name:  cookieName,
-				Value: signedToken,
+				Value: base64Encoded,
 			},
 			assert: func(t *testing.T, rec *httptest.ResponseRecorder) {
 				assert.Equal(t, http.StatusOK, rec.Result().StatusCode)
@@ -150,7 +160,7 @@ func TestRedirect(t *testing.T) {
 
 	validCode := "code"
 	statePath := "/next"
-	token := struct {
+	tkn := struct {
 		TokenType    string `json:"token_type"`
 		AccessToken  string `json:"access_token"`
 		RefreshToken string `json:"refresh_token"`
@@ -161,7 +171,7 @@ func TestRedirect(t *testing.T) {
 		TokenType:    "bearer",
 		AccessToken:  "access",
 		RefreshToken: "refresh",
-		ExpiresIn:    time.Now().Add(time.Hour).Unix(),
+		ExpiresIn:    time.Now().UTC().Add(time.Hour).Unix(),
 		IDToken:      "id token",
 	}
 
@@ -179,7 +189,13 @@ func TestRedirect(t *testing.T) {
 				require.Equal(t, 1, len(rec.Result().Cookies()))
 				gotCookie := rec.Result().Cookies()[0]
 				assert.Equal(t, cookieName, gotCookie.Name)
-				assert.Equal(t, token.IDToken, gotCookie.Value)
+				base64Decoded, err := base64.StdEncoding.DecodeString(gotCookie.Value)
+				require.NoError(t, err)
+				gotToken := &token{}
+				err = json.Unmarshal(base64Decoded, gotToken)
+				require.NoError(t, err)
+				assert.Equal(t, tkn.AccessToken, gotToken.AccessToken)
+				assert.Equal(t, tkn.IDToken, gotToken.IDToken)
 			},
 		},
 		{
@@ -214,7 +230,7 @@ func TestRedirect(t *testing.T) {
 
 					// In case of valid code, encode the token into the response.
 					w.Header().Set("Content-Type", "application/json")
-					err = json.NewEncoder(w).Encode(token)
+					err = json.NewEncoder(w).Encode(tkn)
 					require.NoError(t, err)
 				default:
 					t.Fatalf("Unexpected path: %s", path)
@@ -315,7 +331,7 @@ func genSignedToken(t *testing.T, privateKeyID string, privateKey *rsa.PrivateKe
 		Email: email,
 		Name:  name,
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Local().Add(time.Hour).Unix(),
+			ExpiresAt: time.Now().UTC().Add(time.Hour).Unix(),
 			Audience:  clientID,
 		},
 	}
