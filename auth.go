@@ -271,10 +271,9 @@ func (a *Auth) setCookie(w http.ResponseWriter, token *token) error {
 	}
 	base64Encoded := base64.StdEncoding.EncodeToString(jsonEncoded)
 	http.SetCookie(w, &http.Cookie{
-		Name:    cookieName,
-		Value:   base64Encoded,
-		Expires: token.Expiry,
-		Secure:  !a.cfg.Unsecure,
+		Name:   cookieName,
+		Value:  base64Encoded,
+		Secure: !a.cfg.Unsecure,
 	})
 	return nil
 }
@@ -285,8 +284,6 @@ func (a *Auth) getCookie(r *http.Request) (*token, error) {
 	switch {
 	case err == http.ErrNoCookie || cookie.Value == "":
 		return nil, nil
-	case !cookie.Expires.IsZero() && cookie.Expires.Before(time.Now()):
-		// TODO:
 	case err != nil:
 		return nil, fmt.Errorf("failed getting cookie: %v", err)
 	}
